@@ -40,11 +40,15 @@ npm install -g npm i homebridge-video-doorbell-button --unsafe-perm
     "motion": false,
     "switch": {
       "name": "Ding Dong"
-    }
+    },
+    "http": true
   },
   "lock": {
     "name": "Lock mechanism",
-    "gpio": 5
+    "gpio": 5,
+    "http": {
+      "unlock": "http://192.168.1.6:4343/unlock"
+    }
   }
 }
 ```
@@ -70,5 +74,19 @@ virtual switch accessory for trigger doorbell.
 ```diff
 - You cannot add "motion" and "switch" at the same time
 ```
+
+### http
+
+HTTP server for event bridge ip:6412/dingdong (example: http://192.168.1.2:6412/dingdong).
+
+## Lock mechanism
+
+### gpio
+
+GPIO number for lock.
+
+### http
+
+HTTP url for lock (example: http://192.168.1.6:4343/unlock).
 
 Incidentally, check [iSpyConnect's camera database](https://www.ispyconnect.com/sources.aspx) to find likely protocols and URLs to try with your camera.

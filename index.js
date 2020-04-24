@@ -2,6 +2,9 @@ let Accessory, Service, Characteristic, hap, UUIDGen;
 let FFMPEG = require("./ffmpeg").FFMPEG;
 let dgram = require("dgram");
 var gpio = require("rpi-gpio");
+var express = require("express");
+var app = express();
+var http = require("http");
 
 module.exports = homebridge => {
   Accessory = homebridge.platformAccessory;
@@ -32,7 +35,9 @@ let videoDoorbellPlatform = class {
         });
         this.buttonSid = config.event.buttonSid;
         this.startServer();
-      } else if (this.config.event.gpio) {
+      }
+
+      if (this.config.event.gpio) {
         gpio.on("change", (channel, value) => {
           if (value == true) {
             clearTimeout(this.clickButton);
@@ -43,6 +48,21 @@ let videoDoorbellPlatform = class {
           }
         });
         gpio.setup(this.config.event.gpio, gpio.DIR_IN, gpio.EDGE_BOTH);
+      }
+
+      if (this.config.event.http) {
+        app.get("/dingdong", (req, res) => {
+          this.log("HTTP event");
+          this.doorbellService.getCharacteristic(Characteristic.ProgrammableSwitchEvent).setValue(1);
+          res.send("Success");
+        });
+
+        var server = app.listen(6412, () => {
+          var host = server.address().address;
+          var port = server.address().port;
+
+          this.log.info("Server listening at " + host + ":" + port);
+        });
       }
     }
 
@@ -131,6 +151,24 @@ let videoDoorbellPlatform = class {
       }
     }
 
+    if (this.config.lock.http) {
+      http
+        .get(this.config.lock.http.unlock, resp => {
+          let data = "";
+
+          resp.on("data", chunk => {
+            data += chunk;
+          });
+
+          resp.on("end", () => {
+            this.log(data);
+          });
+        })
+        .on("error", error => {
+          console.log("Error: " + error.message);
+        });
+    }
+
     if (this.locked != state) {
       this.locked = state;
       this.lockService.updateCharacteristic(Characteristic.LockCurrentState, this.locked ? Characteristic.LockCurrentState.SECURED : Characteristic.LockCurrentState.UNSECURED);
@@ -141,7 +179,7 @@ let videoDoorbellPlatform = class {
 
         this.lockService.updateCharacteristic(Characteristic.LockCurrentState, this.locked ? Characteristic.LockCurrentState.SECURED : Characteristic.LockCurrentState.UNSECURED);
         this.lockService.updateCharacteristic(Characteristic.LockTargetState, this.locked ? Characteristic.LockTargetState.SECURED : Characteristic.LockTargetState.UNSECURED);
-      }, 1000);
+      }, 3000);
       callback(null, true);
     }
   }
@@ -164,7 +202,7 @@ let videoDoorbellPlatform = class {
 
       videoDoorbellAccessoryInfo.setCharacteristic(Characteristic.Manufacturer, "Mi/Aqara");
       videoDoorbellAccessoryInfo.setCharacteristic(Characteristic.Model, "Xiaofang");
-      videoDoorbellAccessoryInfo.setCharacteristic(Characteristic.SerialNumber, this.config.event.buttonSid);
+      videoDoorbellAccessoryInfo.setCharacteristic(Characteristic.SerialNumber, this.config.event.buttonSid || "123456789");
       videoDoorbellAccessoryInfo.setCharacteristic(Characteristic.FirmwareRevision, "1.1");
 
       if (this.config && this.config.event && this.config.event.motion && !this.config.event.switch) {
